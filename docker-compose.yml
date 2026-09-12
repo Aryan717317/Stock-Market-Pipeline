@@ -1,0 +1,150 @@
+name: stock-market-pipeline
+
+x-airflow-common: &airflow-common
+  build: .
+  image: stock-market-pipeline:local
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__PARALLELISM: "2"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN_CMD: "python /opt/airflow/project/scripts/airflow_db_url.py"
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: "http://airflow-api-server:8080/execution/"
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?Set AIRFLOW_JWT_SECRET in .env}
+    AIRFLOW__API__SECRET_KEY: ${AIRFLOW_JWT_SECRET:?Set AIRFLOW_JWT_SECRET in .env}
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.api_fastapi.auth.managers.simple.simple_auth_manager.SimpleAuthManager
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "${AIRFLOW_ADMIN_USERNAME:-admin}:admin"
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: /opt/airflow/auth/passwords.json
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD:?Set AIRFLOW_DB_PASSWORD in .env}
+    AIRFLOW_ADMIN_USERNAME: ${AIRFLOW_ADMIN_USERNAME:-admin}
+    AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?Set AIRFLOW_ADMIN_PASSWORD in .env}
+    ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:?Set ALPHA_VANTAGE_API_KEY in .env}
+    STOCK_SYMBOLS: ${STOCK_SYMBOLS:-IBM}
+    STOCK_DB_PASSWORD: ${STOCK_DB_PASSWORD:?Set STOCK_DB_PASSWORD in .env}
+    STOCK_DB_HOST: stock-db
+    API_MIN_INTERVAL_SECONDS: ${API_MIN_INTERVAL_SECONDS:-15}
+    HTTP_CONNECT_TIMEOUT: ${HTTP_CONNECT_TIMEOUT:-10}
+    HTTP_READ_TIMEOUT: ${HTTP_READ_TIMEOUT:-30}
+  volumes:
+    - airflow-logs:/opt/airflow/logs
+    - airflow-auth:/opt/airflow/auth
+  restart: unless-stopped
+
+services:
+  airflow-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_DB: airflow
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:?Set AIRFLOW_DB_PASSWORD in .env}
+    volumes:
+      - airflow-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  stock-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: stocks
+      POSTGRES_DB: stocks
+      POSTGRES_PASSWORD: ${STOCK_DB_PASSWORD:?Set STOCK_DB_PASSWORD in .env}
+    volumes:
+      - stock-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stocks -d stocks"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  airflow-init:
+    <<: *airflow-common
+    command: ["python", "scripts/bootstrap.py"]
+    restart: "no"
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      stock-db:
+        condition: service_healthy
+
+  airflow-api-server:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "127.0.0.1:${AIRFLOW_UI_PORT:-8080}:8080"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      airflow-api-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type DagProcessorJob --hostname \"$$HOSTNAME\""]
+      interval: 30s
+      timeout: 20s
+      retries: 10
+      start_period: 60s
+
+  test-db:
+    image: postgres:16
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_DB: stocks_test
+      POSTGRES_PASSWORD: local-test-only
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d stocks_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  tests:
+    build: .
+    image: stock-market-pipeline:local
+    profiles: ["test"]
+    entrypoint: ["python", "-m", "pytest"]
+    command: ["-q"]
+    environment:
+      TEST_DATABASE_URL: postgresql://test:local-test-only@test-db:5432/stocks_test
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    depends_on:
+      test-db:
+        condition: service_healthy
+
+volumes:
+  airflow-db-data:
+  stock-db-data:
+  airflow-logs:
+  airflow-auth:
