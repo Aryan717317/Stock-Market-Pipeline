@@ -10,7 +10,9 @@ from stock_pipeline.errors import PermanentError, TransientError
 def response(status=200, body=None, headers=None):
     value = MagicMock()
     value.status_code = status
-    value.headers = headers or {}
+    value.headers = {"Content-Type": "application/json"}
+    if headers:
+        value.headers.update(headers)
     value.json.return_value = body
     return value
 
@@ -73,6 +75,12 @@ def test_invalid_json_fails(settings):
     value = response()
     value.json.side_effect = ValueError("invalid")
     with pytest.raises(PermanentError, match="invalid JSON"):
+        call_with_response(value, settings)
+
+
+def test_non_json_content_type_fails(settings):
+    value = response(headers={"Content-Type": "text/html"})
+    with pytest.raises(PermanentError, match="non-JSON content type"):
         call_with_response(value, settings)
 
 

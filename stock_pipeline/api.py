@@ -46,6 +46,8 @@ def fetch_daily(symbol: str, settings: Settings) -> dict:
                 raise TransientError(f"Provider returned HTTP {response.status_code}.", delay)
             if response.status_code != 200:
                 raise PermanentError(f"Provider rejected the request (HTTP {response.status_code}).")
+            if "application/json" not in response.headers.get("Content-Type", "").lower():
+                raise PermanentError("Provider returned non-JSON content type.")
             try:
                 payload = response.json()
             except ValueError:
