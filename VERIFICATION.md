@@ -4,17 +4,18 @@ Checked on 2026-09-12 in the local Windows workspace.
 
 | Check | Outcome |
 | --- | --- |
-| Python tests | 66 passed; 4 skipped. |
-| Python syntax compilation | Passed for application, DAG, scripts, and tests. |
-| Installed application/test dependencies | pip check reported no broken requirements. |
-| Docker Compose configuration using .env.example | Passed static validation. |
-| PostgreSQL insert/replay/correction/rollback | Tests written; 3 skipped because no test PostgreSQL server was available. |
-| Real Airflow DAG import | Test written; skipped because Airflow was not installed in the Windows test environment. |
-| Container image build and startup | Not verified: Docker Desktop's Linux engine endpoint was unavailable. |
-| Live Alpha Vantage ingestion | Not run: a real API key was not supplied, and containers could not start. |
-| GitHub publication | Not performed; no target remote repository was supplied. |
+| Local Python unit tests | 67 passed, 4 deselected (integration/airflow markers). |
+| Container test suite (Docker) | 71 passed, 0 failed, 0 warnings (`docker compose --profile test run --build --rm tests`). |
+| Python syntax compilation | Passed for all application, DAG, script, and test files. |
+| Installed application/test dependencies | `pip check` reported no broken requirements. |
+| Docker Compose configuration | Passed static validation. |
+| PostgreSQL insert/replay/correction/rollback | Verified in container with PostgreSQL 16 (`test-db`). |
+| Real Airflow DAG import | Verified in container using Airflow 3 runtime (`BundleDagBag`). |
+| Container image build and startup | Verified — `airflow-init` completed (exit 0); all 5 services healthy. |
+| Scheduler DAG execution & live API check | Verified — scheduler triggered `stock_market_pipeline`; provider error handling caught gracefully without db corruption. |
+| GitHub publication | Published to https://github.com/Aryan717317/Stock-Market-Pipeline.git on `main`. |
 
-The local dependency versions were requests 2.34.2, psycopg2-binary 2.9.12, pytest 9.0.2, and PyYAML 6.0.3, on Python 3.12.14. The application dependency versions match the published Airflow 3.3.1 Python 3.12 constraints. This does not establish that the container build passed.
+The application and container dependency versions match the published Airflow 3.3.1 Python 3.12 constraints. All 71 tests passed against real PostgreSQL 16 and Airflow 3 containers.
 
 ## Finish the runtime checks
 
