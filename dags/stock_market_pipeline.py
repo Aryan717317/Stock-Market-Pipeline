@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
-from airflow.exceptions import AirflowFailException
 from airflow.sdk import dag, task
+from airflow.sdk.exceptions import AirflowFailException
 
 
 @dag(

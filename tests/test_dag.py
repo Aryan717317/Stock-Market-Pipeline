@@ -16,7 +16,7 @@ def test_dag_loads_without_external_connections(monkeypatch):
 
     monkeypatch.setattr(requests.Session, "get", forbidden)
     monkeypatch.setattr(psycopg2, "connect", forbidden)
-    bag = DagBag(dag_folder=str(Path(__file__).resolve().parents[1] / "dags"), include_examples=False)
+    bag = DagBag(dag_folder=str(Path(__file__).resolve().parents[1] / "dags"))
     assert bag.import_errors == {}
     dag = bag.dags["stock_market_pipeline"]
     assert dag.catchup is False
