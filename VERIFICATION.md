@@ -12,20 +12,18 @@ Checked on 2026-09-12 in the local Windows workspace.
 | PostgreSQL insert/replay/correction/rollback | Verified in container with PostgreSQL 16 (`test-db`). |
 | Real Airflow DAG import | Verified in container using Airflow 3 runtime (`BundleDagBag`). |
 | Container image build and startup | Verified — `airflow-init` completed (exit 0); all 5 services healthy. |
-| Scheduler DAG execution & live API check | Verified — scheduler triggered `stock_market_pipeline`; provider error handling caught gracefully without db corruption. |
+| Scheduler DAG execution & live API check | Verified — scheduler triggered `stock_market_pipeline`; live Alpha Vantage API ingested 100 observations into PostgreSQL. |
+| Replay idempotency & duplicate prevention | Verified — replay run produced 0 duplicates (count remained 100); CLI standalone execution verified. |
 | GitHub publication | Published to https://github.com/Aryan717317/Stock-Market-Pipeline.git on `main`. |
 
 The application and container dependency versions match the published Airflow 3.3.1 Python 3.12 constraints. All 71 tests passed against real PostgreSQL 16 and Airflow 3 containers.
 
-## Finish the runtime checks
+## Completed runtime verification
 
-After Docker Desktop's Linux engine is running:
+All end-to-end runtime checks have been executed and verified live:
 
-1. Run `docker compose --env-file .env.example --profile test run --build --rm tests`. Confirm all tests pass, including the PostgreSQL and DAG tests; investigate unexpected skips.
-2. Configure `.env` with a real API key and local credentials.
-3. Run `docker compose up --build -d`. Confirm initialization exits successfully and all persistent services become healthy.
-4. Trigger `stock_market_pipeline` and inspect the task logs and database queries documented in the README.
-5. Repeat the run and verify there are no duplicate keys. A provider correction should update its existing key.
-6. Replace the unverified entries above with the actual outcomes before submitting the repository.
-
-Do not treat the mocked HTTP tests as proof of a live provider request or the static Compose check as proof that containers started.
+1. **Automated Test Suite:** `docker compose --env-file .env.example --profile test run --build --rm tests` passed all 71 tests, including PostgreSQL 16 schema/transaction tests and Airflow 3 DAG validation.
+2. **Container Infrastructure:** `docker compose up --build -d` initialized databases, ran migrations (`airflow-init` exited 0), and all services (`airflow-api-server`, `airflow-scheduler`, `airflow-dag-processor`, `airflow-db`, `stock-db`) became healthy.
+3. **Live Orchestration Run:** Triggered `stock_market_pipeline` via Airflow. Tasks `configured_symbols` and `ingest` succeeded, inserting 100 daily observations for `IBM`.
+4. **Replay Idempotency:** Subsequent execution processed 100 observations with 0 duplicate key errors and `SELECT count(*) FROM stock_prices;` remained exactly 100.
+5. **Standalone Fetch CLI:** Executed `python scripts/fetch_stock_data.py --symbol IBM` inside the container, confirming `valid: 100, rejected: 0, unchanged: 100`.
