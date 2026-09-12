@@ -9,6 +9,7 @@ log = logging.getLogger(__name__)
 
 
 def ingest_symbol(symbol: str, settings: Settings) -> dict:
+    symbol = symbol.strip().upper()
     payload = fetch_daily(symbol, settings)
     records, rejected = parse_daily(payload, symbol)
     changed = store_records(settings, records)
