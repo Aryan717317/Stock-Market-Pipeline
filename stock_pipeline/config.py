@@ -40,6 +40,7 @@ class Settings:
     db_port: int = 5432
     db_name: str = "stocks"
     db_user: str = "stocks"
+    db_sslmode: str = "disable"
     connect_timeout: float = 10
     read_timeout: float = 30
     min_interval: float = 15
@@ -57,6 +58,7 @@ class Settings:
             db_port=int(port),
             db_name=env.get("STOCK_DB_NAME", "stocks"),
             db_user=env.get("STOCK_DB_USER", "stocks"),
+            db_sslmode=env.get("STOCK_DB_SSLMODE", "disable"),
             connect_timeout=number(env, "HTTP_CONNECT_TIMEOUT", "10", 1, 60),
             read_timeout=number(env, "HTTP_READ_TIMEOUT", "30", 1, 120),
             min_interval=number(env, "API_MIN_INTERVAL_SECONDS", "15", 0, 300),

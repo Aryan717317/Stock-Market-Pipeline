@@ -26,6 +26,7 @@ def connect(settings: Settings):
     return psycopg2.connect(
         host=settings.db_host, port=settings.db_port, dbname=settings.db_name,
         user=settings.db_user, password=settings.db_password,
+        sslmode=settings.db_sslmode,
         connect_timeout=10, application_name="stock-market-pipeline",
         options="-c statement_timeout=60000 -c lock_timeout=10000",
     )
