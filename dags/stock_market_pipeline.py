@@ -13,8 +13,8 @@ from airflow.sdk.exceptions import AirflowFailException
     is_paused_upon_creation=False,
     max_active_runs=1,
     max_active_tasks=1,
-    default_args={"owner": "data-pipeline", "retries": 2,
-                  "retry_delay": timedelta(minutes=5), "execution_timeout": timedelta(minutes=10)},
+    default_args={"owner": "data-pipeline", "retries": 5,
+                  "retry_delay": timedelta(minutes=5), "execution_timeout": timedelta(minutes=30)},
     tags=["stocks", "assignment"],
 )
 def stock_market_pipeline():
